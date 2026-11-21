@@ -1,0 +1,9 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>AR Filters Gallery</title><link rel="stylesheet" href="/css/style.css"></head><body>
+<div class="top"><a class="logo" href="/">✦ AR Filters</a><a href="/admin">Admin</a></div>
+<main class="wrap"><section class="hero"><h1>Step into the filter</h1><p>Open a filter on your phone, see yourself through the front camera, then take a photo or record a video. No app needed.</p></section>
+<div class="grid" id="grid"><p>Loading filters…</p></div>
+<section class="panel"><h2>Share this gallery</h2><div id="mainqr"></div></section></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script><script src="/js/common.js"></script>
+<script>(async()=>{let l=[];try{l=await loadFilters();}catch(e){}
+$g=document.getElementById('grid');$g.innerHTML=l.map(f=>`<a class="card" href="/f/${esc(f.slug)}"><div class="pv"><img loading="lazy" alt="${esc(f.name)}" src="${esc(f.preview||f.asset)}"></div><h3>${esc(f.name)}</h3><p>${esc(f.description)}</p><span class="btn">Open Filter</span></a>`).join('')||'<p>No filters published yet.</p>';
+try{qrCard(document.getElementById('mainqr'),location.origin+'/','gallery');}catch(e){}})();</script></body></html>

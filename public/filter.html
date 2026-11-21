@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>AR Filter</title><link rel="stylesheet" href="/css/style.css"></head><body>
+<div id="pvb" class="banner" hidden>Preview mode — visible only to you if this filter is inactive</div>
+<div class="top"><a class="logo" href="/">✦ AR Filters</a><a href="/">All filters</a></div>
+<main class="land" id="land"><div class="pv"><img id="pimg" alt=""></div><h1 id="fname">Loading…</h1><p id="fdesc"></p>
+<button id="go" disabled>Start Camera</button><p class="err" id="err" role="alert"></p>
+<div class="panel"><h3>Share this filter</h3><div id="fqr"></div></div></main>
+<section id="ar" hidden><canvas id="out"></canvas><video id="vid" playsinline muted hidden></video>
+<div class="tl"><button id="home" aria-label="Back to gallery">⌂</button><button id="close" aria-label="Close camera">✕</button></div><div id="hint">Drag to move · pinch or use slider to resize</div>
+<input id="size" type="range" min="30" max="160" value="75" aria-label="Size"><div class="bar"><button id="rec" aria-label="Record video">●</button><button id="snap" aria-label="Take photo">📷</button></div></section>
+<div id="prev" hidden><div id="pbox"></div><div class="row"><button id="psave">Save</button><button class="alt" id="pshare">Share</button><button class="alt" id="pclose">Discard</button></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="/js/common.js"></script><script src="/js/ar.js"></script>
+<script>(async()=>{const $=id=>document.getElementById(id),qs=new URLSearchParams(location.search);
+const slug=location.pathname.startsWith('/f/')?decodeURIComponent(location.pathname.slice(3).replace(/\/$/,'')):qs.get('f');
+if(qs.get('preview'))$('pvb').hidden=false;
+let f;try{const r=await fetch('/api/filters/'+encodeURIComponent(slug));if(r.ok)f=await r.json();else if(r.status===404)throw 0;else throw 1;}catch(e){try{f=(await (await fetch('/filters.json')).json()).find(x=>x.slug===slug);}catch(e2){}}
+if(!f){$('fname').textContent='Filter not found';$('fdesc').innerHTML='<a href="/">Back to the gallery</a>';return;}
+document.title=f.name+' — AR Filter';$('fname').textContent=f.name;$('fdesc').textContent=f.description;$('pimg').src=f.preview||f.asset;
+try{qrCard($('fqr'),location.origin+'/f/'+f.slug,f.slug);}catch(e){}
+$('go').disabled=false;
+$('go').onclick=async()=>{$('err').textContent='';try{await AR.start(f);}catch(e){$('err').textContent=e.message;}};
+})();</script></body></html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Admin — AR Filters</title><link rel="stylesheet" href="/css/style.css"><meta name="robots" content="noindex"></head><body>
+<div class="top"><a class="logo" href="/">✦ AR Filters · Admin</a><a href="/">View site</a></div>
+<main class="login" id="login" hidden><h1>Admin sign in</h1><label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password"><p class="err" id="lerr" role="alert"></p><button id="lbtn">Sign in</button></main>
+<main class="wrap" id="app" hidden>
+<div class="row" style="justify-content:flex-start"><button id="new">+ New filter</button><button class="alt" id="mainqr">Gallery QR code</button><button class="alt" id="exp">Export ZIP</button><button class="alt" id="out">Sign out</button></div>
+<p><small>Each filter has its own permanent link and QR code. The link never changes when you edit a filter. “Export ZIP” downloads the whole website with all filters, assets and QR codes.</small></p>
+<div id="list"></div></main>
+<dialog id="ed"><h2 id="edt">New filter</h2>
+<label for="f_name">Filter name</label><input id="f_name" maxlength="80">
+<label for="f_desc">Short description</label><textarea id="f_desc" rows="2" maxlength="300"></textarea>
+<label for="f_type">Filter type</label><select id="f_type"><option value="overlay">2D overlay (transparent PNG)</option><option value="model">3D model (GLB / GLTF)</option><option value="tanoura" hidden>Tanoura dancer (built in)</option></select>
+<div data-t="overlay model"><label for="f_asset" id="assetl">Filter file</label><input id="f_asset" type="file"><small id="assetn"></small></div>
+<label for="f_prev">Preview image (shown in gallery)</label><input id="f_prev" type="file" accept="image/png,image/jpeg,image/webp"><small id="prevn"></small><div><img id="prevth" alt="" style="width:90px;margin-top:6px;border-radius:10px;background:#0e1445" hidden></div>
+<label for="s_scale">Size <small id="vs"></small></label><input id="s_scale" type="range" min="30" max="160">
+<div data-t="overlay model"><label for="s_y">Height offset</label><input id="s_y" type="range" min="-100" max="100" value="0">
+<label for="s_anim">Animation</label><select id="s_anim"></select>
+<label for="s_speed">Animation speed</label><input id="s_speed" type="range" min="2" max="40" value="10"></div>
+<div data-t="model"><label for="s_spin">Spin (degrees per second)</label><input id="s_spin" type="range" min="0" max="360" value="0"><label for="s_clip">Model animation clip (0 = play all)</label><input id="s_clip" type="number" min="0" value="0"></div>
+<label><input id="f_act" type="checkbox" style="width:auto"> Active (visible in the gallery)</label><p class="err" id="eerr" role="alert"></p>
+<div class="row"><button id="save">Save filter</button><button class="alt" id="cancel">Cancel</button></div></dialog>
+<dialog id="qd"><h2 id="qt"></h2><div class="panel" style="margin:0" id="qbox"></div><div class="row" style="margin-top:12px"><button class="alt" id="qclose">Close</button></div></dialog>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script><script src="/js/common.js"></script>
+<script>
+const $=id=>document.getElementById(id);let list=[],cur=null,files={};
+async function J(u,m='GET',b){const r=await fetch(u,{method:m,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.error||'Error '+r.status),{status:r.status});return d;}
+async function up(file){const r=await fetch('/api/admin/upload?name='+encodeURIComponent(file.name),{method:'POST',body:file,credentials:'same-origin'});const d=await r.json();if(!r.ok)throw new Error(d.error);return d.url;}
+async function init(){try{const m=await J('/api/me');if(m.admin){$('login').hidden=true;$('app').hidden=false;await refresh();}else{$('login').hidden=false;$('app').hidden=true;}}catch(e){$('login').hidden=false;}}
+$('lbtn').onclick=async()=>{$('lerr').textContent='';try{await J('/api/login','POST',{password:$('pw').value});$('pw').value='';init();}catch(e){$('lerr').textContent=e.message;}};
+$('pw').onkeydown=e=>{if(e.key==='Enter')$('lbtn').click();};
+$('out').onclick=async()=>{await J('/api/logout','POST');init();};
+async function refresh(){try{list=await J('/api/admin/filters');}catch(e){if(e.status===401)return init();alert(e.message);}
+$('list').innerHTML=list.map(f=>`<div class="item"><img src="${esc(f.preview||f.asset)}" alt=""><div class="info"><b>${esc(f.name)}</b><span class="chip ${f.active?'':'off'}">${f.active?'Active':'Inactive'}</span><p>${esc(f.type==='model'?'3D model':f.type==='overlay'?'2D overlay':'Built-in 3D dancer')} · /f/${esc(f.slug)}</p></div>
+<div class="row"><button class="sm alt" data-a="prev" data-i="${f.id}">Preview</button><button class="sm alt" data-a="edit" data-i="${f.id}">Edit</button><button class="sm alt" data-a="tog" data-i="${f.id}">${f.active?'Deactivate':'Activate'}</button><button class="sm alt" data-a="qr" data-i="${f.id}">QR</button>${f.builtin?'':`<button class="sm danger" data-a="del" data-i="${f.id}">Delete</button>`}</div></div>`).join('');}
+$('list').onclick=async e=>{const a=e.target.dataset.a,f=list.find(x=>x.id===e.target.dataset.i);if(!a||!f)return;
+if(a==='prev')window.open('/f/'+f.slug+'?preview=1','_blank');
+if(a==='edit')openEd(f);
+if(a==='tog'){await J('/api/admin/filters/'+f.id,'PUT',{...f,active:!f.active});refresh();}
+if(a==='qr')showQR(location.origin+'/f/'+f.slug,f.name,f.slug,f.active);
+if(a==='del'&&confirm('Delete “'+f.name+'” permanently? Its QR code will stop working.')){await J('/api/admin/filters/'+f.id,'DELETE');refresh();}};
+$('mainqr').onclick=()=>showQR(location.origin+'/','Gallery','gallery',true);
+function showQR(u,t,n,active){$('qt').textContent='QR code — '+t;qrCard($('qbox'),u,n);if(!active)$('qbox').insertAdjacentHTML('afterbegin','<p class="err">This filter is inactive. The QR works only after you activate it.</p>');$('qd').showModal();}
+$('qclose').onclick=()=>$('qd').close();
+const ANIM={overlay:[['none','None'],['float','Float up and down'],['spin','Spin (coin flip)'],['pulse','Pulse'],['sway','Sway']],model:[['auto','Play built-in animation'],['none','No animation'],['float','Float up and down']]};
+function setType(t){$('s_anim').innerHTML=(ANIM[t]||[]).map(a=>`<option value="${a[0]}">${a[1]}</option>`).join('');document.querySelectorAll('[data-t]').forEach(x=>x.hidden=!x.dataset.t.split(' ').includes(t));
+$('assetl').textContent=t==='model'?'3D model file (.glb recommended, or single-file .gltf)':'Transparent PNG overlay (.png or .webp)';$('f_asset').accept=t==='model'?'.glb,.gltf':'image/png,image/webp';}
+$('f_type').onchange=()=>setType($('f_type').value);
+function openEd(f){cur=f;files={};$('eerr').textContent='';$('edt').textContent=f?'Edit filter':'New filter';const s=(f&&f.settings)||{},t=f?f.type:'overlay';
+$('f_type').value=t;$('f_type').disabled=!!f;setType(t);$('f_name').value=f?f.name:'';$('f_desc').value=f?f.description:'';$('f_act').checked=f?f.active:true;
+$('s_scale').value=Math.round((s.scale??.75)*100);$('s_y').value=Math.round((s.y??0)*100);$('s_speed').value=Math.round((s.speed??1)*10);$('s_spin').value=s.spin??0;$('s_clip').value=s.clip??0;$('s_anim').value=s.anim||(t==='model'?'auto':'none');
+$('assetn').textContent=f&&f.asset?'Current file kept unless you choose a new one.':'';$('prevn').textContent=f&&f.preview?'Current preview kept unless you choose a new one.':'';$('f_asset').value='';$('f_prev').value='';
+$('prevth').hidden=!(f&&(f.preview||f.asset));$('prevth').src=f?(f.preview||f.asset):'';$('ed').showModal();}
+$('new').onclick=()=>openEd(null);$('cancel').onclick=()=>$('ed').close();
+$('save').onclick=async()=>{const b=$('save');$('eerr').textContent='';try{
+ const t=$('f_type').value,name=$('f_name').value.trim();if(!name)throw new Error('Please enter a name.');
+ let asset=cur?cur.asset:'',preview=cur?cur.preview:'';b.disabled=true;b.textContent='Uploading…';
+ if($('f_asset').files[0])asset=await up($('f_asset').files[0]);if($('f_prev').files[0])preview=await up($('f_prev').files[0]);
+ if(t!=='tanoura'&&!asset)throw new Error('Please choose the filter file.');
+ if(!preview&&t==='overlay')preview=asset;if(!preview)throw new Error('Please choose a preview image.');
+ const body={name,description:$('f_desc').value,type:t,asset,preview,active:$('f_act').checked,settings:{scale:$('s_scale').value/100,y:$('s_y').value/100,speed:$('s_speed').value/10,spin:+$('s_spin').value,clip:+$('s_clip').value,anim:$('s_anim').value}};
+ await J(cur?'/api/admin/filters/'+cur.id:'/api/admin/filters',cur?'PUT':'POST',body);$('ed').close();refresh();
+}catch(e){$('eerr').textContent=e.message;}finally{b.disabled=false;b.textContent='Save filter';}};
+$('exp').onclick=async()=>{const b=$('exp');b.disabled=true;b.textContent='Preparing…';try{
+ const items=[['main',location.origin+'/'],...list.filter(f=>f.active).map(f=>[f.slug,location.origin+'/f/'+f.slug])];
+ for(const[n,u]of items){const png=await new Promise(r=>qrPNG(u).toBlob(r));await fetch('/api/admin/qr?name='+n+'.png',{method:'POST',body:png});await fetch('/api/admin/qr?name='+n+'.svg',{method:'POST',body:qrSVG(u)});}
+ location.href='/api/admin/export';}catch(e){alert(e.message);}finally{setTimeout(()=>{b.disabled=false;b.textContent='Export ZIP';},1500);}};
+init();
+</script></body></html>
